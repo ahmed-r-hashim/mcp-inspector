@@ -14,3 +14,8 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 - Tool Execution and Viewer Support
 
+### 0.0.4 (2026-06-11)
+
+- Streamable HTTP Support
+- Preserve the webview state and element values
+- Update dependency packages
