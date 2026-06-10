@@ -40,6 +40,12 @@ Initial release of MCP Inspector with:
 
 - Tool Execution Support
 
+### 0.0.4 (2026-06-11)
+
+- Streamable HTTP Support
+- Preserve the webview state and element values
+- Update dependency packages
+
 ## Author
 
 **Dhananjay Senday**

@@ -4,6 +4,7 @@ import {
     SSEClientTransport,
     SseError,
   } from "@modelcontextprotocol/sdk/client/sse.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import * as vscode from 'vscode';
 
 interface InputSchema {
@@ -22,7 +23,7 @@ interface Tool {
 
 export class MCPClient {
     private mcp: Client;
-    private transport: StdioClientTransport | SSEClientTransport | null = null;
+    private transport: StdioClientTransport | SSEClientTransport | StreamableHTTPClientTransport | null = null;
     private tools: Tool[] = [];
 
     constructor() {
@@ -59,13 +60,16 @@ export class MCPClient {
         }
     }
 
-    async connectToSSE(serverUrl: string): Promise<{ success: boolean; tools?: Tool[]; error?: string }> {
+    async connectToSSE(serverUrl: string, headers?: Record<string, string>): Promise<{ success: boolean; tools?: Tool[]; error?: string }> {
         try {
             if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
                 throw new Error("Server URL must start with http:// or https://");
             }
 
-            this.transport = new SSEClientTransport(new URL(serverUrl));
+            const sseOpts = headers && Object.keys(headers).length > 0
+                ? { requestInit: { headers } }
+                : undefined;
+            this.transport = new SSEClientTransport(new URL(serverUrl), sseOpts);
 
             await this.mcp.connect(this.transport);
             
@@ -84,6 +88,37 @@ export class MCPClient {
         } catch (e) {
             const errorMessage = e instanceof Error ? e.message : 'Unknown error occurred';
             vscode.window.showErrorMessage(`Failed to connect to MCP server via SSE: ${errorMessage}`);
+            return { success: false, error: errorMessage };
+        }
+    }
+
+    async connectToStreamableHTTP(serverUrl: string, headers?: Record<string, string>): Promise<{ success: boolean; tools?: Tool[]; error?: string }> {
+        try {
+            if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
+                throw new Error("Server URL must start with http:// or https://");
+            }
+
+            const opts = headers && Object.keys(headers).length > 0
+                ? { requestInit: { headers } }
+                : undefined;
+            this.transport = new StreamableHTTPClientTransport(new URL(serverUrl), opts);
+
+            await this.mcp.connect(this.transport);
+
+            const toolsResult = await this.mcp.listTools();
+            this.tools = toolsResult.tools.map((tool) => {
+                return {
+                    name: tool.name,
+                    description: tool.description,
+                    input_schema: tool.inputSchema,
+                };
+            });
+
+            vscode.window.showInformationMessage(`Connected to MCP server via Streamable HTTP with ${this.tools.length} tools`);
+            return { success: true, tools: this.tools };
+        } catch (e) {
+            const errorMessage = e instanceof Error ? e.message : 'Unknown error occurred';
+            vscode.window.showErrorMessage(`Failed to connect to MCP server via Streamable HTTP: ${errorMessage}`);
             return { success: false, error: errorMessage };
         }
     }

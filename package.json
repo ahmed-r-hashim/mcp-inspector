@@ -4,7 +4,7 @@
   "publisher": "DhananjaySenday",
   "icon": "resources/icon-black.png",
   "description": "Easily inspect and interact with MCP servers directly from Visual Studio Code—no need to download external inspectors. This extension provides seamless integration for monitoring and debugging MCP protocols within your development environment",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "repository": {
     "type": "git",
     "url": "https://github.com/Dhananjay-JSR/mcp-inspector"
@@ -15,7 +15,7 @@
     "name": "Dhananjay Senday"
   },
   "engines": {
-    "vscode": "^1.98.0"
+    "vscode": "^1.110.0"
   },
   "categories": [
     "Other",
@@ -62,15 +62,15 @@
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
-    "@types/vscode": "^1.98.0",
-    "@typescript-eslint/eslint-plugin": "^8.25.0",
-    "@typescript-eslint/parser": "^8.25.0",
+    "@types/vscode": "^1.110.0",
+    "@typescript-eslint/eslint-plugin": "^8.61.0",
+    "@typescript-eslint/parser": "^8.61.0",
     "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.4.1",
-    "eslint": "^9.21.0",
-    "typescript": "^5.7.3"
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.39.4",
+    "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.8.0"
+    "@modelcontextprotocol/sdk": "^1.29.0"
   }
 }

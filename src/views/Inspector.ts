@@ -25,8 +25,9 @@ export class MCPInspectorPanel {
 						if (connectionData.transport === 'stdio') {
 							await this.handleStdioConnection(connectionData);
 						} else if (connectionData.transport === 'sse') {
-							await this.handleSSEConnection(connectionData);
-						}
+							await this.handleSSEConnection(connectionData);					
+						} else if (connectionData.transport === 'streamable-http') {
+						await this.handleStreamableHTTPConnection(connectionData);						}
                         break;
                     case 'disconnect':
 						await this.handleMCPDisconnect();
@@ -59,6 +60,7 @@ export class MCPInspectorPanel {
 			column || vscode.ViewColumn.One,
 			{
 				enableScripts: true,
+				retainContextWhenHidden: true,
 				localResourceRoots: [extensionUri]
 			}
 		);
@@ -253,6 +255,28 @@ export class MCPInspectorPanel {
 						margin: 0;
 						white-space: pre-wrap;
 					}
+					.header-row {
+						display: flex;
+						gap: 8px;
+						margin-bottom: 8px;
+						align-items: center;
+					}
+					.header-row input {
+						margin-bottom: 0;
+						flex: 1;
+					}
+					.header-row .remove-btn {
+						width: 32px;
+						min-width: 32px;
+						padding: 4px;
+						margin: 0;
+						flex: none;
+					}
+					.add-header-btn {
+						width: auto;
+						margin-top: 4px;
+						padding: 4px 12px;
+					}
 				</style>
 			</head>
 			<body>
@@ -262,8 +286,7 @@ export class MCPInspectorPanel {
 						<label for="transportType">Transport Type:</label>
 						<select id="transportType" onchange="handleTransportChange()">
 							<option value="stdio">STDIO</option>
-							<option value="sse">SSE</option>
-						</select>
+							<option value="sse">SSE</option>						<option value="streamable-http">Streamable HTTP</option>						</select>
 					</div>
 
 					<!-- STDIO Section -->
@@ -284,24 +307,39 @@ export class MCPInspectorPanel {
 							<label for="serverUrl">Server URL:</label>
 							<input type="text" id="serverUrl" placeholder="Enter SSE server URL">
 						</div>
+						<div class="form-group">
+							<label>Headers:</label>
+							<div id="headersList"></div>
+						<button type="button" class="add-header-btn" onclick="addHeader('sse')">+ Add Header</button>
 					</div>
+				</div>
 
+				<!-- Streamable HTTP Section -->
+				<div id="streamableHttpSection" class="transport-section">
 					<div class="form-group">
-						<button onclick="connect()">
-							<span id="statusIndicator" class="status-indicator status-disconnected"></span>
-							<span id="connectButtonText">Connect</span>
-						</button>
+						<label for="streamableHttpUrl">Server URL:</label>
+						<input type="text" id="streamableHttpUrl" placeholder="Enter Streamable HTTP server URL">
 					</div>
+					<div class="form-group">
+						<label>Headers:</label>
+						<div id="streamableHttpHeadersList"></div>
+						<button type="button" class="add-header-btn" onclick="addHeader('streamable-http')">+ Add Header</button>
+					</div>
+				</div>
 
-					<div class="response-container">
-						<h3>Connection Status:</h3>
-						<pre id="status">Not connected</pre>
-					</div>
+				<button onclick="connect()">
+					<span class="status-indicator status-disconnected" id="statusIndicator"></span>
+					<span id="connectButtonText">Connect</span>
+				</button>
 
-					<div id="toolsContainer" class="tools-container">
-						<h3>Available Tools:</h3>
-						<div id="toolsList"></div>
-					</div>
+				<div class="response-container">
+					<h3>Connection Status:</h3>
+					<pre id="status">Not connected</pre>
+				</div>
+
+				<div id="toolsContainer" class="tools-container">
+					<h3>Available Tools:</h3>
+					<div id="toolsList"></div>
 				</div>
 
 				<!-- Tool Execution Modal -->
@@ -327,11 +365,41 @@ export class MCPInspectorPanel {
 				<script>
 					const vscode = acquireVsCodeApi();
 					let isConnected = false;
+					let _tools = null;
+					let _initialized = false;
 
 					function handleTransportChange() {
 						const transportType = document.getElementById('transportType').value;
 						document.getElementById('stdioSection').classList.toggle('active', transportType === 'stdio');
 						document.getElementById('sseSection').classList.toggle('active', transportType === 'sse');
+						document.getElementById('streamableHttpSection').classList.toggle('active', transportType === 'streamable-http');
+						saveState();
+					}
+
+					function addHeader(section = 'sse', key = '', value = '') {
+						const listId = section === 'streamable-http' ? 'streamableHttpHeadersList' : 'headersList';
+						const headersList = document.getElementById(listId);
+						const row = document.createElement('div');
+						row.className = 'header-row';
+						row.innerHTML = [
+							'<input type="text" placeholder="Key" value="' + key + '" oninput="saveState()">'  ,
+							'<input type="text" placeholder="Value" value="' + value + '" oninput="saveState()">'  ,
+							'<button type="button" class="remove-btn" onclick="this.parentElement.remove(); saveState();" title="Remove">✕</button>'
+						].join('');
+						headersList.appendChild(row);
+						saveState();
+					}
+
+					function getHeaders(listId = 'headersList') {
+						const rows = document.getElementById(listId).querySelectorAll('.header-row');
+						const headers = {};
+						rows.forEach(row => {
+							const inputs = row.querySelectorAll('input');
+							const key = inputs[0].value.trim();
+							const val = inputs[1].value.trim();
+							if (key) headers[key] = val;
+						});
+						return headers;
 					}
 
 					function connect() {
@@ -351,10 +419,17 @@ export class MCPInspectorPanel {
 								command: command,
 								args: args
 							};
-						} else {
+						} else if (transportType === 'sse') {
 							connectionData = {
 								transport: 'sse',
-								serverUrl: document.getElementById('serverUrl').value
+								serverUrl: document.getElementById('serverUrl').value,
+								headers: getHeaders('headersList')
+							};
+						} else {
+							connectionData = {
+								transport: 'streamable-http',
+								serverUrl: document.getElementById('streamableHttpUrl').value,
+								headers: getHeaders('streamableHttpHeadersList')
 							};
 						}
 
@@ -389,10 +464,13 @@ export class MCPInspectorPanel {
 							connectButtonText.textContent = 'Connect';
 							status.textContent = 'Disconnected';
 							toolsContainer.classList.remove('visible');
+							_tools = null;
+							saveState();
 						}
 					}
 
 				function displayTools(tools) {
+						_tools = tools;
 						const toolsList = document.getElementById('toolsList');
 						toolsList.innerHTML = tools.map(tool => {
 							const schemaString = encodeURIComponent(JSON.stringify({
@@ -410,6 +488,7 @@ export class MCPInspectorPanel {
 								</div>
 							\`;
 						}).join('');
+						saveState();
 					}
 
 					// Handle messages from the extension
@@ -516,6 +595,60 @@ export class MCPInspectorPanel {
 								break;
 						}
 					});
+
+					function saveState() {
+						if (!_initialized) { return; }
+						vscode.setState({
+							transportType: document.getElementById('transportType').value,
+							command: document.getElementById('command').value,
+							scriptArgs: document.getElementById('scriptArgs').value,
+							serverUrl: document.getElementById('serverUrl').value,
+							streamableHttpUrl: document.getElementById('streamableHttpUrl').value,
+							sseHeaders: getHeadersArray('headersList'),
+							streamableHttpHeaders: getHeadersArray('streamableHttpHeadersList'),
+							tools: _tools
+						});
+					}
+
+					function getHeadersArray(listId) {
+						const rows = document.getElementById(listId).querySelectorAll('.header-row');
+						return Array.from(rows).map(row => {
+							const inputs = row.querySelectorAll('input');
+							return { key: inputs[0].value, value: inputs[1].value };
+						});
+					}
+
+					function restoreState() {
+						const state = vscode.getState();
+						if (!state) { return; }
+
+						if (state.transportType) {
+							document.getElementById('transportType').value = state.transportType;
+							const t = state.transportType;
+							document.getElementById('stdioSection').classList.toggle('active', t === 'stdio');
+							document.getElementById('sseSection').classList.toggle('active', t === 'sse');
+							document.getElementById('streamableHttpSection').classList.toggle('active', t === 'streamable-http');
+						}
+						if (state.command) { document.getElementById('command').value = state.command; }
+						if (state.scriptArgs) { document.getElementById('scriptArgs').value = state.scriptArgs; }
+						if (state.serverUrl) { document.getElementById('serverUrl').value = state.serverUrl; }
+						if (state.streamableHttpUrl) { document.getElementById('streamableHttpUrl').value = state.streamableHttpUrl; }
+
+						(state.sseHeaders || []).forEach(h => addHeader('sse', h.key, h.value));
+						(state.streamableHttpHeaders || []).forEach(h => addHeader('streamable-http', h.key, h.value));
+
+						if (state.tools && state.tools.length > 0) {
+							displayTools(state.tools);
+							document.getElementById('toolsContainer').classList.add('visible');
+						}
+					}
+
+					restoreState();
+					_initialized = true;
+					document.getElementById('command').addEventListener('input', saveState);
+					document.getElementById('scriptArgs').addEventListener('input', saveState);
+					document.getElementById('serverUrl').addEventListener('input', saveState);
+					document.getElementById('streamableHttpUrl').addEventListener('input', saveState);
 				</script>
 			</body>
 			</html>
@@ -583,11 +716,15 @@ export class MCPInspectorPanel {
 			// Create a new MCP client for this session
 			this._mcpClient = new MCPClient();
 
-			// Get the server URL
+			// Get the server URL and optional headers
 			const serverUrl = connectionData.serverUrl;
+			const headers: Record<string, string> | undefined =
+				connectionData.headers && Object.keys(connectionData.headers).length > 0
+					? connectionData.headers
+					: undefined;
 			
 			// Connect to the server using SSE
-			const result = await this._mcpClient.connectToSSE(serverUrl);
+			const result = await this._mcpClient.connectToSSE(serverUrl, headers);
 			
 			if (result.success) {
 				// Send success message back to webview
@@ -600,6 +737,46 @@ export class MCPInspectorPanel {
 				});
 			} else {
 				// Send error message back to webview
+				this._panel.webview.postMessage({
+					command: 'connectionStatus',
+					data: {
+						success: false,
+						error: result.error
+					}
+				});
+			}
+		} catch (error) {
+			this._panel.webview.postMessage({
+				command: 'connectionStatus',
+				data: {
+					success: false,
+					error: error instanceof Error ? error.message : 'Unknown error occurred'
+				}
+			});
+		}
+	}
+
+	private async handleStreamableHTTPConnection(connectionData: any) {
+		try {
+			this._mcpClient = new MCPClient();
+
+			const serverUrl = connectionData.serverUrl;
+			const headers: Record<string, string> | undefined =
+				connectionData.headers && Object.keys(connectionData.headers).length > 0
+					? connectionData.headers
+					: undefined;
+
+			const result = await this._mcpClient.connectToStreamableHTTP(serverUrl, headers);
+
+			if (result.success) {
+				this._panel.webview.postMessage({
+					command: 'connectionStatus',
+					data: {
+						success: true,
+						tools: result.tools
+					}
+				});
+			} else {
 				this._panel.webview.postMessage({
 					command: 'connectionStatus',
 					data: {
