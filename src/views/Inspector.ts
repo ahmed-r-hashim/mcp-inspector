@@ -338,7 +338,7 @@ export class MCPInspectorPanel {
 				</div>
 
 				<div id="toolsContainer" class="tools-container">
-					<h3>Available Tools:</h3>
+					<h3>Available Tools (<span id="toolsCount">0</span>):</h3>
 					<div id="toolsList"></div>
 				</div>
 
@@ -471,6 +471,7 @@ export class MCPInspectorPanel {
 
 				function displayTools(tools) {
 						_tools = tools;
+						document.getElementById('toolsCount').textContent = tools.length;
 						const toolsList = document.getElementById('toolsList');
 						toolsList.innerHTML = tools.map(tool => {
 							const schemaString = encodeURIComponent(JSON.stringify({
