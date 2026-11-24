@@ -1,5 +1,5 @@
 {
-  "name": "mcp--inspector",
+  "name": "mcp-inspector",
   "displayName": "MCP Inspector",
   "publisher": "DhananjaySenday",
   "icon": "resources/icon-black.png",
@@ -46,7 +46,8 @@
         {
           "id": "mcp--inspector.inspector-view",
           "name": "Inspector",
-          "type": "webview"
+          "type": "webview",
+          "icon": "resources/icon.svg"
         }
       ]
     }
@@ -58,7 +59,7 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test",
-    "test:coverage": "vscode-test --coverage --coverage-reporter html",
+    "test:coverage": "vscode-test --coverage --coverage-reporter html --coverage-reporter lcov",
     "build:vsix": "npx --no-install vsce package --no-yarn"
   },
   "devDependencies": {
